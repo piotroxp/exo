@@ -182,16 +182,12 @@ async def mac_device_capabilities() -> DeviceCapabilities:
 
 async def linux_device_capabilities() -> DeviceCapabilities:
   import psutil
-  from tinygrad import Device
   
   if DEBUG >= 1:
-    print(f"Device.DEFAULT: {Device.DEFAULT}")
+    print("Attempting AMD GPU detection...")
   
   # Try to detect AMD/ROCM environment first
   try:
-    if DEBUG >= 1:
-      print("Attempting AMD GPU detection...")
-    
     import pyamdgpuinfo
     gpu_raw_info = pyamdgpuinfo.get_gpu(0)
     gpu_name = gpu_raw_info.name
@@ -234,37 +230,49 @@ async def linux_device_capabilities() -> DeviceCapabilities:
     if DEBUG >= 1:
       print(f"AMD detection failed: {e}")
     
-    # Fall back to Device.DEFAULT detection
-    if Device.DEFAULT == "CUDA" or Device.DEFAULT == "NV" or Device.DEFAULT == "GPU":
-      try:
-        if DEBUG >= 1:
-          print("Falling back to NVIDIA detection...")
-        
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
-        gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
-        gpu_memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    # Try to detect NVIDIA as fallback
+    try:
+      if DEBUG >= 1:
+        print("Falling back to NVIDIA detection...")
+      
+      pynvml.nvmlInit()
+      handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+      gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
+      gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
+      gpu_memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
 
-        if DEBUG >= 2:
-          print(f"NVIDIA device {gpu_name=} {gpu_memory_info=}")
+      if DEBUG >= 2:
+        print(f"NVIDIA device {gpu_name=} {gpu_memory_info=}")
 
-        pynvml.nvmlShutdown()
+      pynvml.nvmlShutdown()
 
-        return DeviceCapabilities(
-          model=f"Linux Box ({gpu_name})",
-          chip=gpu_name,
-          memory=gpu_memory_info.total // 2**20,
-          flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
-        )
-      except Exception as e:
-        if DEBUG >= 1:
-          print(f"Failed to get NVIDIA device info: {e}")
+      return DeviceCapabilities(
+        model=f"Linux Box ({gpu_name})",
+        chip=gpu_name,
+        memory=gpu_memory_info.total // 2**20,
+        flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
+      )
+    except Exception as e:
+      if DEBUG >= 1:
+        print(f"Failed to get NVIDIA device info: {e}")
     
-    # Default fallback
+    # Default fallback - try to get device info from environment
+    device_type = "Unknown"
+    try:
+      # Check for common GPU environment variables
+      import os
+      if os.environ.get('CUDA_VISIBLE_DEVICES'):
+        device_type = "CUDA"
+      elif os.environ.get('ROCM_VISIBLE_DEVICES'):
+        device_type = "AMD/ROCM"
+      elif os.environ.get('GPU_DEVICE_ORDINAL'):
+        device_type = "GPU"
+    except:
+      pass
+    
     return DeviceCapabilities(
-      model=f"Linux Box (Device: {Device.DEFAULT})",
-      chip=f"Unknown Chip (Device: {Device.DEFAULT})",
+      model=f"Linux Box (Device: {device_type})",
+      chip=f"Unknown Chip (Device: {device_type})",
       memory=psutil.virtual_memory().total // 2**20,
       flops=DeviceFlops(fp32=0, fp16=0, int8=0),
     )
