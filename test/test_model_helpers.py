@@ -78,7 +78,7 @@ test_cases = [
   ),
   TestCase(
     name="dummy_engine",
-    engine_lists=[["dummy"]],
+    engine_lists=[["mlx"]],
     expected_models_contains=["dummy"],
     min_count=None,
     exact_count=1,
