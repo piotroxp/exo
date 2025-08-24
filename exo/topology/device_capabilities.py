@@ -183,9 +183,6 @@ async def mac_device_capabilities() -> DeviceCapabilities:
 async def linux_device_capabilities() -> DeviceCapabilities:
   import psutil
   
-  if DEBUG >= 1:
-    print("Attempting AMD GPU detection...")
-  
   # Try to detect AMD/ROCM environment first
   try:
     import pyamdgpuinfo
@@ -193,56 +190,43 @@ async def linux_device_capabilities() -> DeviceCapabilities:
     gpu_name = gpu_raw_info.name
     gpu_memory_info = gpu_raw_info.memory_info["vram_size"]
 
-    if DEBUG >= 1:
-      print(f"pyamdgpuinfo result: name={gpu_name}, memory={gpu_memory_info}")
-
     # If pyamdgpuinfo doesn't provide the name, try rocm-smi
     if gpu_name is None or gpu_name == "None":
       try:
-        if DEBUG >= 1:
-          print("pyamdgpuinfo name is None, trying rocm-smi...")
-        
         import subprocess
         result = subprocess.run(['rocm-smi', '--showproductname'], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
           for line in result.stdout.split('\n'):
             if 'Card Series:' in line:
-              gpu_name = line.split('Card Series:')[1].strip()
+              # Parse: "GPU[0]          : Card Series:          Radeon RX 7900 XTX"
+              parts = line.split('Card Series:')
+              if len(parts) > 1:
+                gpu_name = parts[1].strip()
               break
-      except Exception as e:
-        if DEBUG >= 1:
-          print(f"rocm-smi failed: {e}")
+      except Exception:
         pass
     
     # Fallback to a generic name if still no name
     if gpu_name is None or gpu_name == "None":
       gpu_name = "AMD GPU (ROCM)"
 
-    if DEBUG >= 2: print(f"AMD device {gpu_name=} {gpu_memory_info=}")
+    # Convert memory from bytes to MB
+    memory_mb = gpu_memory_info // 2**20
 
     return DeviceCapabilities(
-      model="Linux Box (" + gpu_name + ")",
+      model=f"Linux Box ({gpu_name})",
       chip=gpu_name,
-      memory=gpu_memory_info // 2**20,
+      memory=memory_mb,
       flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
     )
-  except Exception as e:
-    if DEBUG >= 1:
-      print(f"AMD detection failed: {e}")
-    
-    # Try to detect NVIDIA as fallback
+  except Exception:
+    # AMD detection failed, try NVIDIA as fallback
     try:
-      if DEBUG >= 1:
-        print("Falling back to NVIDIA detection...")
-      
       pynvml.nvmlInit()
       handle = pynvml.nvmlDeviceGetHandleByIndex(0)
       gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
       gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
       gpu_memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-
-      if DEBUG >= 2:
-        print(f"NVIDIA device {gpu_name=} {gpu_memory_info=}")
 
       pynvml.nvmlShutdown()
 
@@ -252,30 +236,14 @@ async def linux_device_capabilities() -> DeviceCapabilities:
         memory=gpu_memory_info.total // 2**20,
         flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
       )
-    except Exception as e:
-      if DEBUG >= 1:
-        print(f"Failed to get NVIDIA device info: {e}")
-    
-    # Default fallback - try to get device info from environment
-    device_type = "Unknown"
-    try:
-      # Check for common GPU environment variables
-      import os
-      if os.environ.get('CUDA_VISIBLE_DEVICES'):
-        device_type = "CUDA"
-      elif os.environ.get('ROCM_VISIBLE_DEVICES'):
-        device_type = "AMD/ROCM"
-      elif os.environ.get('GPU_DEVICE_ORDINAL'):
-        device_type = "GPU"
-    except:
-      pass
-    
-    return DeviceCapabilities(
-      model=f"Linux Box (Device: {device_type})",
-      chip=f"Unknown Chip (Device: {device_type})",
-      memory=psutil.virtual_memory().total // 2**20,
-      flops=DeviceFlops(fp32=0, fp16=0, int8=0),
-    )
+    except Exception:
+      # Both AMD and NVIDIA detection failed, use system memory as fallback
+      return DeviceCapabilities(
+        model="Linux Box (CPU Only)",
+        chip="CPU",
+        memory=psutil.virtual_memory().total // 2**20,
+        flops=DeviceFlops(fp32=0, fp16=0, int8=0),
+      )
 
 
 def windows_device_capabilities() -> DeviceCapabilities:
