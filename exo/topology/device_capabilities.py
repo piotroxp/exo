@@ -183,15 +183,21 @@ async def mac_device_capabilities() -> DeviceCapabilities:
 async def linux_device_capabilities() -> DeviceCapabilities:
   import psutil
   
+  print("DEBUG: Entering linux_device_capabilities function")
+  
   # Try to detect AMD/ROCM environment first
   try:
+    print("DEBUG: Trying AMD detection...")
     import pyamdgpuinfo
     gpu_raw_info = pyamdgpuinfo.get_gpu(0)
     gpu_name = gpu_raw_info.name
     gpu_memory_info = gpu_raw_info.memory_info["vram_size"]
 
+    print(f"DEBUG: pyamdgpuinfo result - name: {repr(gpu_name)}, memory: {gpu_memory_info}")
+
     # If pyamdgpuinfo doesn't provide the name, try rocm-smi
     if gpu_name is None or gpu_name == "None":
+      print("DEBUG: pyamdgpuinfo name is None, trying rocm-smi...")
       try:
         import subprocess
         result = subprocess.run(['rocm-smi', '--showproductname'], capture_output=True, text=True, timeout=5)
@@ -202,16 +208,20 @@ async def linux_device_capabilities() -> DeviceCapabilities:
               parts = line.split('Card Series:')
               if len(parts) > 1:
                 gpu_name = parts[1].strip()
+                print(f"DEBUG: rocm-smi parsed name: {repr(gpu_name)}")
               break
-      except Exception:
+      except Exception as e:
+        print(f"DEBUG: rocm-smi failed: {e}")
         pass
     
     # Fallback to a generic name if still no name
     if gpu_name is None or gpu_name == "None":
       gpu_name = "AMD GPU (ROCM)"
+      print(f"DEBUG: Using fallback name: {repr(gpu_name)}")
 
     # Convert memory from bytes to MB
     memory_mb = gpu_memory_info // 2**20
+    print(f"DEBUG: Final result - name: {repr(gpu_name)}, memory: {memory_mb}MB")
 
     return DeviceCapabilities(
       model=f"Linux Box ({gpu_name})",
@@ -219,9 +229,11 @@ async def linux_device_capabilities() -> DeviceCapabilities:
       memory=memory_mb,
       flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
     )
-  except Exception:
+  except Exception as e:
+    print(f"DEBUG: AMD detection failed with exception: {e}")
     # AMD detection failed, try NVIDIA as fallback
     try:
+      print("DEBUG: Trying NVIDIA detection...")
       pynvml.nvmlInit()
       handle = pynvml.nvmlDeviceGetHandleByIndex(0)
       gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
@@ -236,8 +248,10 @@ async def linux_device_capabilities() -> DeviceCapabilities:
         memory=gpu_memory_info.total // 2**20,
         flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
       )
-    except Exception:
+    except Exception as e2:
+      print(f"DEBUG: NVIDIA detection also failed: {e2}")
       # Both AMD and NVIDIA detection failed, use system memory as fallback
+      print("DEBUG: Using CPU fallback")
       return DeviceCapabilities(
         model="Linux Box (CPU Only)",
         chip="CPU",
