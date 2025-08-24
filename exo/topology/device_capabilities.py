@@ -6,6 +6,12 @@ import psutil
 import asyncio
 from exo.helpers import get_mac_system_info, subprocess_pool
 
+try:
+    import pynvml
+    _EXO_NVML_AVAILABLE = True
+except Exception:
+    _EXO_NVML_AVAILABLE = False
+
 TFLOPS = 1.00
 
 
@@ -178,17 +184,15 @@ async def linux_device_capabilities() -> DeviceCapabilities:
   import psutil
   from tinygrad import Device
 
-  if DEBUG >= 2: print(f"tinygrad {Device.DEFAULT=}")
   if Device.DEFAULT == "CUDA" or Device.DEFAULT == "NV" or Device.DEFAULT == "GPU":
-    import pynvml
-
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
     gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
     gpu_memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
 
-    if DEBUG >= 2: print(f"NVIDIA device {gpu_name=} {gpu_memory_info=}")
+    if DEBUG >= 2:
+      print(f"NVIDIA device {gpu_name=} {gpu_memory_info=}")
 
     pynvml.nvmlShutdown()
 
@@ -251,8 +255,6 @@ def windows_device_capabilities() -> DeviceCapabilities:
   contains_amd = any('amd' in gpu_name.lower() for gpu_name in gpu_names)
 
   if contains_nvidia:
-    import pynvml
-
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
@@ -280,10 +282,10 @@ def windows_device_capabilities() -> DeviceCapabilities:
     rocml.smi_shutdown()
 
     return DeviceCapabilities(
-      model="Windows Box ({gpu_name})",
-      chip={gpu_name},
-      memory=gpu_memory_info.total // 2**20,
-      flops=DeviceFlops(fp32=0, fp16=0, int8=0),
+      model=f"Windows Box ({gpu_name})",
+      chip=gpu_name,
+      memory=gpu_memory_info // 2**20,
+      flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
     )
   else:
     return DeviceCapabilities(
