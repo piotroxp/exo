@@ -1,0 +1,14 @@
+# Find real libgcc_s.so.1 and prefer its directory on LD_LIBRARY_PATH
+REAL_LIBGCC=""
+if command -v ldconfig >/dev/null 2>&1; then
+  # Prefer 64-bit version over 32-bit
+  REAL_LIBGCC="$(ldconfig -p | awk '/libgcc_s\.so\.1.*x86-64/{print $4; exit}')"
+  # Fallback to any version if 64-bit not found
+  if [[ -z "${REAL_LIBGCC}" ]]; then
+    REAL_LIBGCC="$(ldconfig -p | awk '/libgcc_s\.so\.1/{print $4; exit}')"
+  fi
+fi
+# Fallback for common Debian/Ubuntu path
+if [[ -z "${REAL_LIBGCC}" && -e /lib/x86_64-linux-gnu/libgcc_s.so.1 ]]; then
+  REAL_LIBGCC=/lib/x86_64-linux-gnu/libgcc_s.so.1
+fi 
