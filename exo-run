@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stop transformers from importing torch (exo uses tinygrad)
+export TRANSFORMERS_NO_TORCH=1
+
 # Find real libgcc_s.so.1 and prefer its directory on LD_LIBRARY_PATH
 REAL_LIBGCC=""
 if command -v ldconfig >/dev/null 2>&1; then
@@ -11,4 +17,10 @@ fi
 # Fallback for common Debian/Ubuntu path
 if [[ -z "${REAL_LIBGCC}" && -e /lib/x86_64-linux-gnu/libgcc_s.so.1 ]]; then
   REAL_LIBGCC=/lib/x86_64-linux-gnu/libgcc_s.so.1
-fi 
+fi
+if [[ -n "${REAL_LIBGCC}" ]]; then
+  export LD_LIBRARY_PATH="$(dirname "$REAL_LIBGCC"):${LD_LIBRARY_PATH:-}"
+fi
+
+# Run exo
+exec exo "$@" 
