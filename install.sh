@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # 2) Modern build tools
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip setuptools wheel tinygrad==0.10.0
 
 # 3) Install exo in editable mode (no build isolation to respect the venv)
 #    editable_mode=compat keeps the legacy `setup.py develop` behavior stable
