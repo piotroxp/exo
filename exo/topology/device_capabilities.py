@@ -204,7 +204,7 @@ async def linux_device_capabilities() -> DeviceCapabilities:
         if result.returncode == 0:
           for line in result.stdout.split('\n'):
             if 'Card Series:' in line:
-              # Parse: "GPU[0]          : Card Series:          Radeon RX 7900 XTX"
+              # Parse: "GPU[0]\t\t: Card Series: \t\tRadeon RX 7900 XTX"
               parts = line.split('Card Series:')
               if len(parts) > 1:
                 gpu_name = parts[1].strip()
