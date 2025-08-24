@@ -110,7 +110,8 @@ def is_amd_rocm_system():
     return False
 
 inference_engine_name = args.inference_engine or (
-  "mlx" if system_info == "Apple Silicon Mac" or is_amd_rocm_system()
+  "mlx" if system_info == "Apple Silicon Mac"
+  else "tinygrad" if is_amd_rocm_system()
   else "tinygrad"
 )
 print(f"Inference engine name after selection: {inference_engine_name}")

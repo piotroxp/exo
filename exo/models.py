@@ -151,7 +151,7 @@ model_cards = {
   "phi-3.5-mini": { "layers": 32, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/Phi-3.5-mini-instruct-4bit", }, },
   "phi-4": { "layers": 40, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/phi-4-4bit", }, },
   # dummy - replaced with actual Llama 3.2 1B model
-  "dummy": { "layers": 16, "repo": { "MLXDynamicShardInferenceEngine": "meta-llama/Llama-3.2-1B", }, },
+  "dummy": { "layers": 16, "repo": { "TinygradDynamicShardInferenceEngine": "meta-llama/Llama-3.2-1B", }, },
 }
 
 pretty_name = {
