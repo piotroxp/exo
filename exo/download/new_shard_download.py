@@ -297,14 +297,11 @@ class NewShardDownloader(ShardDownloader):
     return target_dir
 
   async def get_shard_download_status(self, inference_engine_name: str) -> AsyncIterator[tuple[Path, RepoProgressEvent]]:
-    # Disabled automatic model loading to prevent unwanted downloads
     if DEBUG >= 2: print("Getting shard download status for", inference_engine_name)
-    # Only return status for models that are already downloaded, don't auto-download
-    # tasks = [download_shard(build_full_shard(model_id, inference_engine_name), inference_engine_name, self.on_progress, skip_download=True) for model_id in get_supported_models([[inference_engine_name]])]
-    # for task in asyncio.as_completed(tasks):
-    #   try:
-    #     path, progress = await task
-    #     yield (path, progress)
-    #   except Exception as e:
-    #     print("Error downloading shard:", e)
-    return
+    tasks = [download_shard(build_full_shard(model_id, inference_engine_name), inference_engine_name, self.on_progress, skip_download=True) for model_id in get_supported_models([[inference_engine_name]])]
+    for task in asyncio.as_completed(tasks):
+      try:
+        path, progress = await task
+        yield (path, progress)
+      except Exception as e:
+        print("Error downloading shard:", e)
