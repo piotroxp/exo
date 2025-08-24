@@ -522,8 +522,9 @@ class Node:
     if self.inference_engine.__class__.__name__ == 'DummyInferenceEngine': return
     supported_engines = self.get_supported_inference_engines()
     await self.broadcast_supported_engines(supported_engines)
-    if len(self.get_topology_inference_engines()):
-      self.inference_engine = get_inference_engine(supported_engines[0], self.shard_downloader)
+    # Disabled automatic engine switching to prevent unwanted model downloads
+    # if len(self.get_topology_inference_engines()):
+    #   self.inference_engine = get_inference_engine(supported_engines[0], self.shard_downloader)
 
   async def periodic_topology_collection(self, interval: int):
     while True:
