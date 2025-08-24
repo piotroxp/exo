@@ -100,7 +100,20 @@ system_info = get_system_info()
 print(f"Detected system: {system_info}")
 
 shard_downloader: ShardDownloader = new_shard_downloader(args.max_parallel_downloads) if args.inference_engine != "dummy" else NoopShardDownloader()
-inference_engine_name = args.inference_engine or ("mlx" if system_info == "Apple Silicon Mac" else "tinygrad")
+# Detect AMD/ROCM environment
+def is_amd_rocm_system():
+  try:
+    import subprocess
+    result = subprocess.run(['rocm-smi', '--showproductname'], capture_output=True, text=True, timeout=5)
+    return result.returncode == 0
+  except:
+    return False
+
+inference_engine_name = args.inference_engine or (
+  "mlx" if system_info == "Apple Silicon Mac" 
+  else "dummy" if is_amd_rocm_system()
+  else "tinygrad"
+)
 print(f"Inference engine name after selection: {inference_engine_name}")
 
 inference_engine = get_inference_engine(inference_engine_name, shard_downloader)
