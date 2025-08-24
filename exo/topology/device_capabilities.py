@@ -202,10 +202,13 @@ async def linux_device_capabilities() -> DeviceCapabilities:
         import subprocess
         result = subprocess.run(['rocm-smi', '--showproductname'], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
-          for line in result.stdout.split('\n'):
+          print(f"DEBUG: rocm-smi output lines:")
+          for i, line in enumerate(result.stdout.split('\n')):
+            print(f"DEBUG: Line {i}: {repr(line)}")
             if 'Card Series:' in line:
               # Parse: "GPU[0]\t\t: Card Series: \t\tRadeon RX 7900 XTX"
               parts = line.split('Card Series:')
+              print(f"DEBUG: Found Card Series line, parts: {parts}")
               if len(parts) > 1:
                 gpu_name = parts[1].strip()
                 print(f"DEBUG: rocm-smi parsed name: {repr(gpu_name)}")
