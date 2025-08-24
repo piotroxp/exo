@@ -3,19 +3,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# 1) Create a local venv (prefer 3.12 if available)
-PY=python3
-if command -v python3.12 &>/dev/null; then
-  echo "Python 3.12 is installed, proceeding with python3.12..."
-  PY=python3.12
-else
-  echo "The recommended Python is 3.12, but using: $($PY --version)"
-fi
-
-$PY -m venv .venv
-# shellcheck disable=SC1091
-source .venv/bin/activate
-
 # 2) Modern build tools
 python -m pip install -U pip setuptools wheel
 
@@ -29,11 +16,6 @@ pip install -e . --no-build-isolation --config-settings editable_mode=compat
 cat > exo-run << 'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Use venv python
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/.venv/bin/activate"
 
 # Stop transformers from importing torch (exo uses tinygrad)
 export TRANSFORMERS_NO_TORCH=1
